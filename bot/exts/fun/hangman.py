@@ -52,23 +52,47 @@ class Hangman(commands.Cog):
         return hangman_embed
 
     @commands.command()
-    async def hangman(
-            self,
-            ctx: commands.Context,
-            min_length: int = 0,
-            max_length: int = 25,
-            min_unique_letters: int = 0,
-            max_unique_letters: int = 25,
-    ) -> None:
+    async def hangman(self, ctx: commands.Context, *args) -> None:
         """
         Play hangman against the bot, where you have to guess the word it has provided!
 
-        The arguments for this command mean:
+        Arguments:
         - min_length: the minimum length you want the word to be (i.e. 2)
         - max_length: the maximum length you want the word to be (i.e. 5)
         - min_unique_letters: the minimum unique letters you want the word to have (i.e. 4)
         - max_unique_letters: the maximum unique letters you want the word to have (i.e. 7)
         """
+
+        # Check if the first argument is "help"
+        if args and args[0].lower() == "help":
+            await self.hangman_help(ctx)
+            return
+
+        # Default values
+        min_length = 0
+        max_length = 25
+        min_unique_letters = 0
+        max_unique_letters = 25
+
+        # Try to parse arguments safely
+        try:
+            if len(args) > 0:
+                min_length = int(args[0])
+            if len(args) > 1:
+                max_length = int(args[1])
+            if len(args) > 2:
+                min_unique_letters = int(args[2])
+            if len(args) > 3:
+                max_unique_letters = int(args[3])
+        except ValueError:
+            invalid_input_embed = Embed(
+                title="Invalid Input",
+                description="Please enter valid numbers for the filters or use `.hangman help` for assistance.",
+                color=Colours.soft_red,
+            )
+            await ctx.send(embed=invalid_input_embed)
+            return
+
         # Filtering the list of all words depending on the configuration
         filtered_words = [
             word for word in ALL_WORDS
@@ -173,6 +197,48 @@ class Hangman(commands.Cog):
             color=Colours.grass_green
         )
         await ctx.send(embed=win_embed)
+
+    async def hangman_help(self, ctx):
+        """Displays the help message for Hangman, including word length selection."""
+        help_embed = Embed(
+            title="Hangman Help",
+            description="Here's how to play Hangman!",
+            color=Colours.dark_green
+        )
+
+        help_embed.add_field(
+            name="Commands",
+            value="`hangman`: Start a new game with default settings.\n"
+                "`hangman help`: Get help on how to play.",
+            inline=False
+        )
+
+        help_embed.add_field(
+            name="Difficulty Settings",
+            value="`easy`: Common words\n"
+                "`medium`: Uncommon words\n"
+                "`hard`: Rare words",
+            inline=False
+        )
+
+        help_embed.add_field(
+            name="Word Length Selection",
+            value="You can specify a **range of word lengths** when starting a game.\n"
+                "- Example: `.hangman 5 7` → Chooses a word **between 5 and 7 letters** long.\n"
+                "- If no words match the exact range, try widening the range.\n"
+                "- Example: `.hangman 4 8` → Increases the selection pool.",
+            inline=False
+        )
+
+        help_embed.add_field(
+            name="Unique Letter Selection",
+            value="You can also **filter words based on unique letters**.\n"
+                "- Example: `.hangman 5 8 3 6` → Word length **between 5-8** and **3-6 unique letters**.",
+            inline=False
+        )
+
+        await ctx.send(embed=help_embed)
+
 
 
 async def setup(bot: Bot) -> None:
