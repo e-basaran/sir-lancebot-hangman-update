@@ -50,6 +50,12 @@ class Hangman(commands.Cog):
         )
         hangman_embed.set_footer(text=f"Tries remaining: {tries}")
         return hangman_embed
+    
+    MODES = {
+        "easy": {"min_length": 0, "max_length": 5, "min_unique": 0, "max_unique": 5},
+        "medium": {"min_length": 4, "max_length": 9, "min_unique": 3, "max_unique": 6},
+        "hard": {"min_length": 8, "max_length": 13, "min_unique": 5, "max_unique": 9},
+    }
 
     @commands.command()
     async def hangman(
