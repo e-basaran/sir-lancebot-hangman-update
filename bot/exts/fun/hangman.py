@@ -85,6 +85,12 @@ class Hangman(commands.Cog):
             )
             await ctx.send(embed=invalid_mode_embed)
             return
+        
+        mode_settings = self.MODES[mode]
+        min_length = mode_settings["min_length"]
+        max_length = mode_settings["max_length"]
+        min_unique_letters = mode_settings["min_unique"]
+        max_unique_letters = mode_settings["max_unique"]
 
         # Filtering the list of all words depending on the configuration
         filtered_words = [
