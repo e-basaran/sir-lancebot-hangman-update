@@ -33,7 +33,7 @@ class Hangman(commands.Cog):
         self.bot = bot
 
     @staticmethod
-    def create_embed(tries: int, user_guess: str) -> Embed:
+    def create_embed(tries: int, user_guess: str, difficulty: str = None) -> Embed:
         """
         Helper method that creates the embed where the game information is shown.
 
@@ -48,7 +48,10 @@ class Hangman(commands.Cog):
             name=f"You've guessed `{user_guess}` so far.",
             value="Guess the word by sending a message with a letter!"
         )
-        hangman_embed.set_footer(text=f"Tries remaining: {tries}")
+        footer_text = f"Tries remaining: {tries}"
+        if difficulty:
+            footer_text += f" | Difficulty: {difficulty}"
+        hangman_embed.set_footer(text=footer_text)
         return hangman_embed
     
     MODES = {
