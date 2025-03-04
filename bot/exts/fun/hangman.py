@@ -131,8 +131,7 @@ class Hangman(commands.Cog):
         # Game loop
         while user_guess.replace(" ", "") != word:
             # Edit the message to the current state of the game
-            await original_message.edit(embed=self.create_embed(tries, user_guess))
-
+            await original_message.edit(embed=self.create_embed(tries, user_guess, mode))
             try:
                 message = await self.bot.wait_for(
                     "message",
@@ -185,14 +184,14 @@ class Hangman(commands.Cog):
                         description=f"The word was `{word}`.",
                         color=Colours.soft_red,
                     )
-                    await original_message.edit(embed=self.create_embed(tries, user_guess))
+                    await original_message.edit(embed=self.create_embed(tries, user_guess, mode))
                     await ctx.send(embed=losing_embed)
                     return
 
             guessed_letters.add(normalized_content)
 
         # The loop exited meaning that the user has guessed the word
-        await original_message.edit(embed=self.create_embed(tries, user_guess))
+        await original_message.edit(embed=self.create_embed(tries, user_guess, mode))
         win_embed = Embed(
             title="You won!",
             description=f"The word was `{word}`.",
