@@ -76,6 +76,16 @@ class Hangman(commands.Cog):
         - min_unique_letters: the minimum unique letters you want the word to have (i.e. 4)
         - max_unique_letters: the maximum unique letters you want the word to have (i.e. 7)
         """
+        mode = mode.lower()
+        if mode not in self.MODES:
+            invalid_mode_embed = Embed(
+                title=choice(NEGATIVE_REPLIES),
+                description="Invalid mode! Please choose from `easy`, `medium`, or `hard`.",
+                color=Colours.soft_red,
+            )
+            await ctx.send(embed=invalid_mode_embed)
+            return
+
         # Filtering the list of all words depending on the configuration
         filtered_words = [
             word for word in ALL_WORDS
