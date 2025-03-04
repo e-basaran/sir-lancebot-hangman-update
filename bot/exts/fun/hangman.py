@@ -61,10 +61,11 @@ class Hangman(commands.Cog):
     async def hangman(
             self,
             ctx: commands.Context,
-            min_length: int = 0,
-            max_length: int = 25,
-            min_unique_letters: int = 0,
-            max_unique_letters: int = 25,
+            mode: str = "medium"
+            # min_length: int = 0,
+            # max_length: int = 25,
+            # min_unique_letters: int = 0,
+            # max_unique_letters: int = 25,
     ) -> None:
         """
         Play hangman against the bot, where you have to guess the word it has provided!
