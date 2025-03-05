@@ -70,12 +70,16 @@ class Hangman(commands.Cog):
         - medium: Medium length words with moderate unique letters
         - hard: Longer words with more unique letters
 
+
         Type `.hangman help` for more detailed information.
         """
         # Check if the user wants help
         if difficulty.lower() == "help":
             await self.hangman_help(ctx)
             return
+
+
+       
 
         difficulty = difficulty.lower()
         if difficulty not in WORD_PRESETS:
