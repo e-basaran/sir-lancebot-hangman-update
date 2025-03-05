@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 from random import choice
 
 from discord import Embed, Message
@@ -7,8 +8,9 @@ from discord.ext import commands
 from bot.bot import Bot
 from bot.constants import Colours, NEGATIVE_REPLIES
 
-# Defining all words in the list of words as a global variable
-ALL_WORDS = Path("bot/resources/fun/hangman_words.txt").read_text().splitlines()
+# Load word presets from JSON file
+with open(Path("bot/exts/fun/hangman_presets.json")) as f:
+    WORD_PRESETS = json.load(f)["DIFFICULTY_PRESETS"]
 
 # Defining a dictionary of images that will be used for the game to represent the hangman person
 IMAGES = {
@@ -50,68 +52,35 @@ class Hangman(commands.Cog):
         )
         footer_text = f"Tries remaining: {tries}"
         if difficulty:
-            footer_text += f" | Difficulty: {difficulty}"
+            footer_text += f" | Difficulty: {difficulty.capitalize()}"
         hangman_embed.set_footer(text=footer_text)
         return hangman_embed
-    
-    MODES = {
-        "easy": {"min_length": 0, "max_length": 5, "min_unique": 0, "max_unique": 5},
-        "medium": {"min_length": 4, "max_length": 9, "min_unique": 3, "max_unique": 6},
-        "hard": {"min_length": 8, "max_length": 13, "min_unique": 5, "max_unique": 9},
-    }
 
     @commands.command()
     async def hangman(
             self,
             ctx: commands.Context,
-            mode: str = "medium"
-            # min_length: int = 0,
-            # max_length: int = 25,
-            # min_unique_letters: int = 0,
-            # max_unique_letters: int = 25,
+            difficulty: str = "medium"
     ) -> None:
         """
         Play hangman against the bot, where you have to guess the word it has provided!
 
-        The arguments for this command mean:
-        - min_length: the minimum length you want the word to be (i.e. 2)
-        - max_length: the maximum length you want the word to be (i.e. 5)
-        - min_unique_letters: the minimum unique letters you want the word to have (i.e. 4)
-        - max_unique_letters: the maximum unique letters you want the word to have (i.e. 7)
+        The difficulty parameter can be one of:
+        - easy: Shorter words with fewer unique letters
+        - medium: Medium length words with moderate unique letters
+        - hard: Longer words with more unique letters
         """
-        mode = mode.lower()
-        if mode not in self.MODES:
-            invalid_mode_embed = Embed(
+        difficulty = difficulty.lower()
+        if difficulty not in WORD_PRESETS:
+            invalid_difficulty_embed = Embed(
                 title=choice(NEGATIVE_REPLIES),
-                description="Invalid mode! Please choose from `easy`, `medium`, or `hard`.",
+                description="Invalid difficulty! Please choose from `easy`, `medium`, or `hard`.",
                 color=Colours.soft_red,
             )
-            await ctx.send(embed=invalid_mode_embed)
-            return
-        
-        mode_settings = self.MODES[mode]
-        min_length = mode_settings["min_length"]
-        max_length = mode_settings["max_length"]
-        min_unique_letters = mode_settings["min_unique"]
-        max_unique_letters = mode_settings["max_unique"]
-
-        # Filtering the list of all words depending on the configuration
-        filtered_words = [
-            word for word in ALL_WORDS
-            if min_length < len(word) < max_length
-            and min_unique_letters < len(set(word)) < max_unique_letters
-        ]
-
-        if not filtered_words:
-            filter_not_found_embed = Embed(
-                title=choice(NEGATIVE_REPLIES),
-                description="No words could be found that fit all filters specified.",
-                color=Colours.soft_red,
-            )
-            await ctx.send(embed=filter_not_found_embed)
+            await ctx.send(embed=invalid_difficulty_embed)
             return
 
-        word = choice(filtered_words)
+        word = choice(WORD_PRESETS[difficulty])
         # `pretty_word` is used for comparing the indices where the guess of the user is similar to the word
         # The `user_guess` variable is prettified by adding spaces between every dash, and so is the `pretty_word`
         pretty_word = "".join([f"{letter} " for letter in word])[:-1]
@@ -131,7 +100,8 @@ class Hangman(commands.Cog):
         # Game loop
         while user_guess.replace(" ", "") != word:
             # Edit the message to the current state of the game
-            await original_message.edit(embed=self.create_embed(tries, user_guess, mode))
+            await original_message.edit(embed=self.create_embed(tries, user_guess, difficulty))
+
             try:
                 message = await self.bot.wait_for(
                     "message",
@@ -184,14 +154,14 @@ class Hangman(commands.Cog):
                         description=f"The word was `{word}`.",
                         color=Colours.soft_red,
                     )
-                    await original_message.edit(embed=self.create_embed(tries, user_guess, mode))
+                    await original_message.edit(embed=self.create_embed(tries, user_guess, difficulty))
                     await ctx.send(embed=losing_embed)
                     return
 
             guessed_letters.add(normalized_content)
 
         # The loop exited meaning that the user has guessed the word
-        await original_message.edit(embed=self.create_embed(tries, user_guess, mode))
+        await original_message.edit(embed=self.create_embed(tries, user_guess, difficulty))
         win_embed = Embed(
             title="You won!",
             description=f"The word was `{word}`.",
