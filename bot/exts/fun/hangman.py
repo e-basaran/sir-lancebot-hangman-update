@@ -1,4 +1,5 @@
 from pathlib import Path
+import json
 from random import choice
 
 from discord import Embed, Message
@@ -7,8 +8,9 @@ from discord.ext import commands
 from bot.bot import Bot
 from bot.constants import Colours, NEGATIVE_REPLIES
 
-# Defining all words in the list of words as a global variable
-ALL_WORDS = Path("bot/resources/fun/hangman_words.txt").read_text().splitlines()
+# Load word presets from JSON file
+with open(Path("bot/exts/fun/hangman_presets.json")) as f:
+    WORD_PRESETS = json.load(f)["DIFFICULTY_PRESETS"]
 
 # Defining a dictionary of images that will be used for the game to represent the hangman person
 IMAGES = {
@@ -33,7 +35,7 @@ class Hangman(commands.Cog):
         self.bot = bot
 
     @staticmethod
-    def create_embed(tries: int, user_guess: str) -> Embed:
+    def create_embed(tries: int, user_guess: str, difficulty: str = None) -> Embed:
         """
         Helper method that creates the embed where the game information is shown.
 
@@ -48,68 +50,44 @@ class Hangman(commands.Cog):
             name=f"You've guessed `{user_guess}` so far.",
             value="Guess the word by sending a message with a letter!"
         )
-        hangman_embed.set_footer(text=f"Tries remaining: {tries}")
+        footer_text = f"Tries remaining: {tries}"
+        if difficulty:
+            footer_text += f" | Difficulty: {difficulty.capitalize()}"
+        hangman_embed.set_footer(text=footer_text)
         return hangman_embed
 
     @commands.command()
-    async def hangman(self, ctx: commands.Context, *args) -> None:
+    async def hangman(
+            self,
+            ctx: commands.Context,
+            difficulty: str = "medium"
+    ) -> None:
         """
         Play hangman against the bot, where you have to guess the word it has provided!
 
-        Arguments:
-        - min_length: the minimum length you want the word to be (i.e. 2)
-        - max_length: the maximum length you want the word to be (i.e. 5)
-        - min_unique_letters: the minimum unique letters you want the word to have (i.e. 4)
-        - max_unique_letters: the maximum unique letters you want the word to have (i.e. 7)
-        """
+        The difficulty parameter can be one of:
+        - easy: Shorter words with fewer unique letters
+        - medium: Medium length words with moderate unique letters
+        - hard: Longer words with more unique letters
 
-        # Check if the first argument is "help"
-        if args and args[0].lower() == "help":
+        Type `.hangman help` for more detailed information.
+        """
+        # Check if the user wants help
+        if difficulty.lower() == "help":
             await self.hangman_help(ctx)
             return
 
-        # Default values
-        min_length = 0
-        max_length = 25
-        min_unique_letters = 0
-        max_unique_letters = 25
-
-        # Try to parse arguments safely
-        try:
-            if len(args) > 0:
-                min_length = int(args[0])
-            if len(args) > 1:
-                max_length = int(args[1])
-            if len(args) > 2:
-                min_unique_letters = int(args[2])
-            if len(args) > 3:
-                max_unique_letters = int(args[3])
-        except ValueError:
-            invalid_input_embed = Embed(
-                title="Invalid Input",
-                description="Please enter valid numbers for the filters or use `.hangman help` for assistance.",
-                color=Colours.soft_red,
-            )
-            await ctx.send(embed=invalid_input_embed)
-            return
-
-        # Filtering the list of all words depending on the configuration
-        filtered_words = [
-            word for word in ALL_WORDS
-            if min_length < len(word) < max_length
-            and min_unique_letters < len(set(word)) < max_unique_letters
-        ]
-
-        if not filtered_words:
-            filter_not_found_embed = Embed(
+        difficulty = difficulty.lower()
+        if difficulty not in WORD_PRESETS:
+            invalid_difficulty_embed = Embed(
                 title=choice(NEGATIVE_REPLIES),
-                description="No words could be found that fit all filters specified.",
+                description="Invalid difficulty! Please choose from `easy`, `medium`, or `hard`.\nType `.hangman help` for more information.",
                 color=Colours.soft_red,
             )
-            await ctx.send(embed=filter_not_found_embed)
+            await ctx.send(embed=invalid_difficulty_embed)
             return
 
-        word = choice(filtered_words)
+        word = choice(WORD_PRESETS[difficulty])
         # `pretty_word` is used for comparing the indices where the guess of the user is similar to the word
         # The `user_guess` variable is prettified by adding spaces between every dash, and so is the `pretty_word`
         pretty_word = "".join([f"{letter} " for letter in word])[:-1]
@@ -129,7 +107,7 @@ class Hangman(commands.Cog):
         # Game loop
         while user_guess.replace(" ", "") != word:
             # Edit the message to the current state of the game
-            await original_message.edit(embed=self.create_embed(tries, user_guess))
+            await original_message.edit(embed=self.create_embed(tries, user_guess, difficulty))
 
             try:
                 message = await self.bot.wait_for(
@@ -183,14 +161,14 @@ class Hangman(commands.Cog):
                         description=f"The word was `{word}`.",
                         color=Colours.soft_red,
                     )
-                    await original_message.edit(embed=self.create_embed(tries, user_guess))
+                    await original_message.edit(embed=self.create_embed(tries, user_guess, difficulty))
                     await ctx.send(embed=losing_embed)
                     return
 
             guessed_letters.add(normalized_content)
 
         # The loop exited meaning that the user has guessed the word
-        await original_message.edit(embed=self.create_embed(tries, user_guess))
+        await original_message.edit(embed=self.create_embed(tries, user_guess, difficulty))
         win_embed = Embed(
             title="You won!",
             description=f"The word was `{word}`.",
@@ -199,7 +177,7 @@ class Hangman(commands.Cog):
         await ctx.send(embed=win_embed)
 
     async def hangman_help(self, ctx):
-        """Displays the help message for Hangman, including word length selection."""
+        """Displays the help message for Hangman, including difficulty options."""
         help_embed = Embed(
             title="Hangman Help",
             description="Here's how to play Hangman!",
@@ -207,38 +185,39 @@ class Hangman(commands.Cog):
         )
 
         help_embed.add_field(
-            name="Commands",
-            value="`hangman`: Start a new game with default settings.\n"
-                "`hangman help`: Get help on how to play.",
+            name="Basic Commands",
+            value="`hangman`: Start a new game with medium difficulty.\n"
+                "`hangman help`: Show this help message.",
             inline=False
         )
 
         help_embed.add_field(
             name="Difficulty Settings",
-            value="`easy`: Common words\n"
-                "`medium`: Uncommon words\n"
-                "`hard`: Rare words",
+            value="Choose your difficulty level by typing:\n"
+                "`.hangman easy`: Common words (3-5 letters)\n"
+                "`.hangman medium`: Moderate words (4-8 letters)\n"
+                "`.hangman hard`: Challenging words (8+ letters)",
             inline=False
         )
 
         help_embed.add_field(
-            name="Word Length Selection",
-            value="You can specify a **range of word lengths** when starting a game.\n"
-                "- Example: `.hangman 5 7` → Chooses a word **between 5 and 7 letters** long.\n"
-                "- If no words match the exact range, try widening the range.\n"
-                "- Example: `.hangman 4 8` → Increases the selection pool.",
+            name="How to Play",
+            value="1. The bot will choose a word based on the difficulty\n"
+                "2. Guess one letter at a time\n"
+                "3. You have 6 tries to guess the word\n"
+                "4. The game shows your progress and remaining tries",
             inline=False
         )
 
         help_embed.add_field(
-            name="Unique Letter Selection",
-            value="You can also **filter words based on unique letters**.\n"
-                "- Example: `.hangman 5 8 3 6` → Word length **between 5-8** and **3-6 unique letters**.",
+            name="Tips",
+            value="- Start with common vowels (a, e, i, o, u)\n"
+                "- Look for common consonants (r, s, t, n)\n"
+                "- Pay attention to word length and difficulty level",
             inline=False
         )
 
         await ctx.send(embed=help_embed)
-
 
 
 async def setup(bot: Bot) -> None:
