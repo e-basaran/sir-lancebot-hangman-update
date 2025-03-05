@@ -69,12 +69,23 @@ class Hangman(commands.Cog):
         - easy: Shorter words with fewer unique letters
         - medium: Medium length words with moderate unique letters
         - hard: Longer words with more unique letters
+
+
+        Type `.hangman help` for more detailed information.
         """
+        # Check if the user wants help
+        if difficulty.lower() == "help":
+            await self.hangman_help(ctx)
+            return
+
+
+       
+
         difficulty = difficulty.lower()
         if difficulty not in WORD_PRESETS:
             invalid_difficulty_embed = Embed(
                 title=choice(NEGATIVE_REPLIES),
-                description="Invalid difficulty! Please choose from `easy`, `medium`, or `hard`.",
+                description="Invalid difficulty! Please choose from `easy`, `medium`, or `hard`.\nType `.hangman help` for more information.",
                 color=Colours.soft_red,
             )
             await ctx.send(embed=invalid_difficulty_embed)
@@ -168,6 +179,49 @@ class Hangman(commands.Cog):
             color=Colours.grass_green
         )
         await ctx.send(embed=win_embed)
+
+    async def hangman_help(self, ctx):
+        """Displays the help message for Hangman, including difficulty options."""
+        help_embed = Embed(
+            title="Hangman Help",
+            description="Here's how to play Hangman!",
+            color=Colours.dark_green
+        )
+
+        help_embed.add_field(
+            name="Basic Commands",
+            value="`hangman`: Start a new game with medium difficulty.\n"
+                "`hangman help`: Show this help message.",
+            inline=False
+        )
+
+        help_embed.add_field(
+            name="Difficulty Settings",
+            value="Choose your difficulty level by typing:\n"
+                "`.hangman easy`: Common words (3-5 letters)\n"
+                "`.hangman medium`: Moderate words (4-8 letters)\n"
+                "`.hangman hard`: Challenging words (8+ letters)",
+            inline=False
+        )
+
+        help_embed.add_field(
+            name="How to Play",
+            value="1. The bot will choose a word based on the difficulty\n"
+                "2. Guess one letter at a time\n"
+                "3. You have 6 tries to guess the word\n"
+                "4. The game shows your progress and remaining tries",
+            inline=False
+        )
+
+        help_embed.add_field(
+            name="Tips",
+            value="- Start with common vowels (a, e, i, o, u)\n"
+                "- Look for common consonants (r, s, t, n)\n"
+                "- Pay attention to word length and difficulty level",
+            inline=False
+        )
+
+        await ctx.send(embed=help_embed)
 
 
 async def setup(bot: Bot) -> None:
