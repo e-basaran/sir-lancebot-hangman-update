@@ -124,38 +124,71 @@ class Hangman(commands.Cog):
     async def hangman(
             self,
             ctx: commands.Context,
-            difficulty: str = "medium"
+            *args: str
     ) -> None:
         """
         Play hangman against the bot, where you have to guess the word it has provided!
 
-        The difficulty parameter can be one of:
-        - easy: Shorter words with fewer unique letters
-        - medium: Medium length words with moderate unique letters
-        - hard: Longer words with more unique letters
+        You can play in two ways:
+        1. Using difficulty presets:
+           - easy: Shorter words with fewer unique letters
+           - medium: Medium length words with moderate unique letters
+           - hard: Longer words with more unique letters
 
+        2. Using custom parameters:
+           - min_length: Minimum word length
+           - max_length: Maximum word length
+           - min_unique_letters: Minimum unique letters
+           - max_unique_letters: Maximum unique letters
+
+        Examples:
+        - `.hangman easy` - Play with easy difficulty
+        - `.hangman 5 8` - Words with 5-8 letters
+        - `.hangman 5 8 3 6` - Words with 5-8 letters and 3-6 unique letters
+        - `.hangman help` - Show detailed help
 
         Type `.hangman help` for more detailed information.
         """
-        # Check if the user wants help
-        if difficulty.lower() == "help":
+        # Parse and validate arguments
+        difficulty, custom_params, error = self.parse_arguments(args)
+
+        # Handle help command
+        if error == "help":
             await self.hangman_help(ctx)
             return
 
-
-       
-
-        difficulty = difficulty.lower()
-        if difficulty not in WORD_PRESETS:
-            invalid_difficulty_embed = Embed(
+        # Handle validation errors
+        if error:
+            error_embed = Embed(
                 title=choice(NEGATIVE_REPLIES),
-                description="Invalid difficulty! Please choose from `easy`, `medium`, or `hard`.\nType `.hangman help` for more information.",
+                description=error,
                 color=Colours.soft_red,
             )
-            await ctx.send(embed=invalid_difficulty_embed)
+            await ctx.send(embed=error_embed)
             return
 
-        word = choice(WORD_PRESETS[difficulty])
+        # Get word based on difficulty preset or custom parameters
+        if difficulty:
+            word = choice(WORD_PRESETS[difficulty])
+        else:
+            # Filter words based on custom parameters
+            filtered_words = [
+                word for word in sum(WORD_PRESETS.values(), [])  # Combine all word lists
+                if custom_params["min_length"] <= len(word) <= custom_params["max_length"]
+                and custom_params["min_unique_letters"] <= len(set(word)) <= custom_params["max_unique_letters"]
+            ]
+
+            if not filtered_words:
+                no_words_embed = Embed(
+                    title=choice(NEGATIVE_REPLIES),
+                    description="No words found matching your criteria. Try widening your parameters.",
+                    color=Colours.soft_red,
+                )
+                await ctx.send(embed=no_words_embed)
+                return
+
+            word = choice(filtered_words)
+
         # `pretty_word` is used for comparing the indices where the guess of the user is similar to the word
         # The `user_guess` variable is prettified by adding spaces between every dash, and so is the `pretty_word`
         pretty_word = "".join([f"{letter} " for letter in word])[:-1]
@@ -245,7 +278,7 @@ class Hangman(commands.Cog):
         await ctx.send(embed=win_embed)
 
     async def hangman_help(self, ctx):
-        """Displays the help message for Hangman, including difficulty options."""
+        """Displays the help message for Hangman, including difficulty options and custom parameters."""
         help_embed = Embed(
             title="Hangman Help",
             description="Here's how to play Hangman!",
@@ -260,7 +293,7 @@ class Hangman(commands.Cog):
         )
 
         help_embed.add_field(
-            name="Difficulty Settings",
+            name="Difficulty Presets",
             value="Choose your difficulty level by typing:\n"
                 "`.hangman easy`: Common words (3-5 letters)\n"
                 "`.hangman medium`: Moderate words (4-8 letters)\n"
@@ -269,8 +302,18 @@ class Hangman(commands.Cog):
         )
 
         help_embed.add_field(
+            name="Custom Parameters",
+            value="You can customize word selection with these parameters:\n"
+                "`.hangman min_length max_length [min_unique max_unique]`\n"
+                "Examples:\n"
+                "- `.hangman 5 8` - Words with 5-8 letters\n"
+                "- `.hangman 5 8 3 6` - Words with 5-8 letters and 3-6 unique letters",
+            inline=False
+        )
+
+        help_embed.add_field(
             name="How to Play",
-            value="1. The bot will choose a word based on the difficulty\n"
+            value="1. The bot will choose a word based on your settings\n"
                 "2. Guess one letter at a time\n"
                 "3. You have 6 tries to guess the word\n"
                 "4. The game shows your progress and remaining tries",
@@ -281,7 +324,8 @@ class Hangman(commands.Cog):
             name="Tips",
             value="- Start with common vowels (a, e, i, o, u)\n"
                 "- Look for common consonants (r, s, t, n)\n"
-                "- Pay attention to word length and difficulty level",
+                "- Pay attention to word length and difficulty level\n"
+                "- If no words match your custom parameters, try widening the ranges",
             inline=False
         )
 
