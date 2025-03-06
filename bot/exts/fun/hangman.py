@@ -1,6 +1,7 @@
 from pathlib import Path
 import json
 from random import choice
+from typing import Dict, Optional, Tuple, Union
 
 from discord import Embed, Message
 from discord.ext import commands
@@ -11,6 +12,14 @@ from bot.constants import Colours, NEGATIVE_REPLIES
 # Load word presets from JSON file
 with open(Path("bot/exts/fun/hangman_presets.json")) as f:
     WORD_PRESETS = json.load(f)["DIFFICULTY_PRESETS"]
+
+# Default parameter ranges for custom games
+DEFAULT_PARAMS = {
+    "min_length": 0,
+    "max_length": 25,
+    "min_unique_letters": 0,
+    "max_unique_letters": 25
+}
 
 # Defining a dictionary of images that will be used for the game to represent the hangman person
 IMAGES = {
@@ -33,6 +42,61 @@ class Hangman(commands.Cog):
 
     def __init__(self, bot: Bot):
         self.bot = bot
+
+    @staticmethod
+    def parse_arguments(args: Tuple[str, ...]) -> Tuple[Optional[str], Optional[Dict[str, int]], Optional[str]]:
+        """
+        Parse and validate command arguments.
+
+        Returns:
+            A tuple containing:
+            - difficulty preset name if using a preset, None if using custom params
+            - dictionary of custom parameters if provided, None if using a preset
+            - error message if validation fails, None if validation succeeds
+        """
+        # No arguments provided - use default difficulty
+        if not args:
+            return "medium", None, None
+
+        # Check for help command
+        if args[0].lower() == "help":
+            return None, None, "help"
+
+        # Check if using a difficulty preset
+        if len(args) == 1:
+            difficulty = args[0].lower()
+            if difficulty in WORD_PRESETS:
+                return difficulty, None, None
+            return None, None, f"Invalid difficulty! Please choose from `easy`, `medium`, or `hard`.\nType `.hangman help` for more information."
+
+        # Parse custom parameters
+        try:
+            params = DEFAULT_PARAMS.copy()
+            if len(args) > 0:
+                params["min_length"] = int(args[0])
+            if len(args) > 1:
+                params["max_length"] = int(args[1])
+            if len(args) > 2:
+                params["min_unique_letters"] = int(args[2])
+            if len(args) > 3:
+                params["max_unique_letters"] = int(args[3])
+
+            # Validate parameter ranges
+            if params["min_length"] < 0 or params["max_length"] < 0:
+                return None, None, "Word length parameters cannot be negative."
+            if params["min_unique_letters"] < 0 or params["max_unique_letters"] < 0:
+                return None, None, "Unique letter parameters cannot be negative."
+            if params["min_length"] > params["max_length"]:
+                return None, None, "Minimum word length cannot be greater than maximum word length."
+            if params["min_unique_letters"] > params["max_unique_letters"]:
+                return None, None, "Minimum unique letters cannot be greater than maximum unique letters."
+            if params["min_unique_letters"] > params["max_length"]:
+                return None, None, "Number of unique letters cannot be greater than word length."
+
+            return None, params, None
+
+        except ValueError:
+            return None, None, "Invalid parameters! Please provide valid numbers or use a difficulty preset.\nType `.hangman help` for more information."
 
     @staticmethod
     def create_embed(tries: int, user_guess: str, difficulty: str = None) -> Embed:
